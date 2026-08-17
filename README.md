@@ -19,6 +19,11 @@ job-queue-comparison/
 ├── data/
 │   ├── generate_dummy_prices.py  # Generate synthetic stock price data
 │   └── analysis.py               # Shared moving average calculation logic
+├── financial_api_client/
+│   ├── flaky_api.py    # Simulated flaky financial quotes API
+│   ├── client.py        # Client with tenacity-based retry + exponential backoff
+│   ├── demo.py           # Runnable demo with logging
+│   └── test_client.py    # Mock-based tests of the retry behavior
 ├── requirements.txt
 └── REPORT.md            # Full comparison report
 ```
@@ -55,3 +60,17 @@ Each `run_test.py` runs three test scenarios:
 1. Single task: submit → receive result latency
 2. Batch of 50 tasks processed concurrently
 3. Auto-retry behavior on an intentionally failing task
+
+### 3. Retry mechanism for a flaky financial API
+
+```bash
+cd financial_api_client
+python3 demo.py          # runs a batch of quote fetches against a simulated flaky API
+python3 -m pytest -v     # runs the mock-based retry tests
+```
+
+`client.py` wraps calls to a simulated flaky API (`flaky_api.py`) with
+[`tenacity`](https://tenacity.readthedocs.io/): retries only on transient
+errors (rate limits, 503s, timeouts), exponential backoff with jitter, a
+capped attempt count, and logging of each retry attempt and the final
+success/failure.
