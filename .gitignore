@@ -44,6 +44,7 @@ celerybeat.pid
 
 # Mounted / generated data
 mnt/
+etl_pipeline/output/
 
 # IDE
 .vscode/

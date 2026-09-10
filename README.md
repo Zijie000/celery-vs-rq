@@ -24,6 +24,13 @@ job-queue-comparison/
 │   ├── client.py        # Client with tenacity-based retry + exponential backoff
 │   ├── demo.py           # Runnable demo with logging
 │   └── test_client.py    # Mock-based tests of the retry behavior
+├── etl_pipeline/
+│   ├── core.py            # Record, Extractor/Transformer/Loader interfaces, Pipeline
+│   ├── extract/           # EquityExtractor, CryptoExtractor (independently swappable)
+│   ├── transform/         # Cleaning (dedupe, outliers) and feature (returns, MA) stages
+│   ├── load/               # CSVLoader, SQLiteLoader (independently swappable)
+│   ├── demo.py             # Runs equities->CSV and crypto->SQLite pipelines
+│   └── test_pipeline.py   # Unit tests per stage + a composed-pipeline test
 ├── requirements.txt
 └── REPORT.md            # Full comparison report
 ```
@@ -74,3 +81,30 @@ python3 -m pytest -v     # runs the mock-based retry tests
 errors (rate limits, 503s, timeouts), exponential backoff with jitter, a
 capped attempt count, and logging of each retry attempt and the final
 success/failure.
+
+### 4. Modular ETL pipeline framework
+
+```bash
+python3 -m etl_pipeline.demo     # runs equities->CSV and crypto->SQLite pipelines
+python3 -m pytest etl_pipeline/test_pipeline.py -v
+```
+
+`etl_pipeline/` is a small, modular ETL framework for financial time
+series data. Each stage is a swappable interface:
+
+- **Extract** (`etl_pipeline/extract/`): `EquityExtractor` and
+  `CryptoExtractor` pull synthetic (offline, no API key needed) but
+  realistically-shaped price series — retrying transient failures with
+  the same `tenacity` backoff policy as `financial_api_client`.
+- **Transform** (`etl_pipeline/transform/`): composable cleaning stages
+  (`DropInvalidPrices`, `DropDuplicates`, `ClipOutliers`) and feature
+  stages (`AddReturns`, `AddMovingAverage`), applied in sequence.
+- **Load** (`etl_pipeline/load/`): `CSVLoader` and `SQLiteLoader` persist
+  the final records.
+- **Pipeline** (`etl_pipeline/core.py`): wires one Extractor, a list of
+  Transformers, and one Loader together and runs them in order.
+
+`demo.py` builds two pipelines that share the same `Pipeline` orchestrator
+and several transform stages, but use different extractors and loaders —
+equities go to a CSV file, crypto goes to a SQLite table — demonstrating
+that any stage can be replaced without touching the others.
