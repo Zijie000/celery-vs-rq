@@ -31,6 +31,10 @@ job-queue-comparison/
 │   ├── load/               # CSVLoader, SQLiteLoader (independently swappable)
 │   ├── demo.py             # Runs equities->CSV and crypto->SQLite pipelines
 │   └── test_pipeline.py   # Unit tests per stage + a composed-pipeline test
+├── report_versioning/
+│   ├── store.py         # ReportVersionStore: save / list / rollback / cleanup
+│   ├── demo.py           # Runnable demo: daily runs, bad day, rollback, cleanup
+│   └── test_store.py    # Tests for versioning, rollback, and retention
 ├── requirements.txt
 └── REPORT.md            # Full comparison report
 ```
@@ -108,3 +112,34 @@ series data. Each stage is a swappable interface:
 and several transform stages, but use different extractors and loaders —
 equities go to a CSV file, crypto goes to a SQLite table — demonstrating
 that any stage can be replaced without touching the others.
+
+### 5. File versioning for daily reports
+
+```bash
+python3 -m report_versioning.demo
+python3 -m pytest report_versioning -v
+```
+
+`report_versioning/` stores each generated CSV as a new file,
+`<root>/<report>/<report>_<YYYY-MM-DD>_v<NNN>.csv`, and never overwrites:
+files are written to a temp file and hard-linked into place, so an existing
+version can't be clobbered and readers never see a partial report. `NNN` is
+a per-report counter that is never reused.
+
+```python
+store = ReportVersionStore("reports", retention=RetentionPolicy(keep_last=7, max_age_days=30))
+store.save("daily_metrics", csv_text)         # -> new version, auto-cleans afterwards
+store.list_versions("daily_metrics")
+store.rollback("daily_metrics", 9)            # copies v009 forward as the new latest
+store.cleanup("daily_metrics", dry_run=True)  # preview what would be deleted
+```
+
+- **Rollback** is non-destructive: it copies the old version forward as a
+  new latest version, so the bad version stays on disk and the rollback can
+  itself be rolled back.
+- **Cleanup** deletes a version only if it is outside the newest `keep_last`
+  *and* older than `max_age_days` (by its date tag, not mtime). The latest
+  version is always kept. It runs automatically after save/rollback when a
+  retention policy is configured.
+- `etl_pipeline.load.VersionedCSVLoader` plugs the store into an ETL
+  `Pipeline` in place of `CSVLoader`.
