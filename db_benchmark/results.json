@@ -1,0 +1,69 @@
+{
+  "rows": 630000,
+  "symbols": 500,
+  "repeats": 5,
+  "versions": {
+    "sqlite": "3.45.1",
+    "duckdb": "2.0.0",
+    "pandas": "2.2.2"
+  },
+  "cpu_count": 8,
+  "setup": {
+    "SQLite": {
+      "import_ms": 33.74883299693465,
+      "install_mb": 0.0,
+      "pip_install": false
+    },
+    "DuckDB": {
+      "import_ms": 86.80329192429781,
+      "install_mb": 53.213698,
+      "pip_install": true
+    }
+  },
+  "ingest_s": {
+    "SQLite": 1.0309712910093367,
+    "DuckDB": 0.16010004188865423,
+    "DuckDB (1 thread)": 0.16010004188865423
+  },
+  "disk_mb": {
+    "CSV (reference)": 38.309228,
+    "SQLite": 46.084096,
+    "DuckDB": 11.546624
+  },
+  "queries_s": {
+    "SQLite": {
+      "Symbol lookup\n(1 symbol, 1 yr)": 0.0001805420033633709,
+      "Per-symbol stats\n(GROUP BY symbol)": 0.1101511251181364,
+      "Monthly avg close\n(GROUP BY symbol, month)": 0.4303226249758154,
+      "20-day moving average\n(window function)": 0.2831862079910934,
+      "Top 10 daily moves\n(LAG + sort)": 0.44912449992261827,
+      "Top-5 volume per day\n(ROW_NUMBER per date)": 0.5473840001504868
+    },
+    "DuckDB": {
+      "Symbol lookup\n(1 symbol, 1 yr)": 0.0009985840879380703,
+      "Per-symbol stats\n(GROUP BY symbol)": 0.01018983288668096,
+      "Monthly avg close\n(GROUP BY symbol, month)": 0.0252984999679029,
+      "20-day moving average\n(window function)": 0.11545012495480478,
+      "Top 10 daily moves\n(LAG + sort)": 0.05577404098585248,
+      "Top-5 volume per day\n(ROW_NUMBER per date)": 0.0067617089953273535
+    },
+    "DuckDB (1 thread)": {
+      "Symbol lookup\n(1 symbol, 1 yr)": 0.0006517497822642326,
+      "Per-symbol stats\n(GROUP BY symbol)": 0.008867541095241904,
+      "Monthly avg close\n(GROUP BY symbol, month)": 0.0219581660348922,
+      "20-day moving average\n(window function)": 0.12614841596223414,
+      "Top 10 daily moves\n(LAG + sort)": 0.06399287492968142,
+      "Top-5 volume per day\n(ROW_NUMBER per date)": 0.007625916972756386
+    }
+  },
+  "pandas_s": {
+    "SQLite": {
+      "Query \u2192 DataFrame": 0.2985736250411719,
+      "SQL on a DataFrame\n(no load step)": 1.1747862289194018
+    },
+    "DuckDB": {
+      "Query \u2192 DataFrame": 0.02471537492237985,
+      "SQL on a DataFrame\n(no load step)": 0.007740208879113197
+    }
+  }
+}

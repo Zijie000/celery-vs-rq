@@ -35,6 +35,11 @@ job-queue-comparison/
 │   ├── store.py         # ReportVersionStore: save / list / rollback / cleanup
 │   ├── demo.py           # Runnable demo: daily runs, bad day, rollback, cleanup
 │   └── test_store.py    # Tests for versioning, rollback, and retention
+├── db_benchmark/
+│   ├── benchmark.py     # SQLite vs DuckDB: ingest, queries, pandas, disk
+│   ├── chart.py          # Renders comparison.png from results.json
+│   ├── comparison.png   # The deliverable chart
+│   └── test_benchmark.py
 ├── requirements.txt
 └── REPORT.md            # Full comparison report
 ```
@@ -143,3 +148,42 @@ store.cleanup("daily_metrics", dry_run=True)  # preview what would be deleted
   retention policy is configured.
 - `etl_pipeline.load.VersionedCSVLoader` plugs the store into an ETL
   `Pipeline` in place of `CSVLoader`.
+
+### 6. SQLite vs DuckDB for ad-hoc analysis
+
+```bash
+python3 -m db_benchmark.benchmark   # ~30 s; writes results.json + comparison.png
+```
+
+![SQLite vs DuckDB](db_benchmark/comparison.png)
+
+Dataset: 630,000 rows of synthetic daily OHLCV (500 symbols × 5 years),
+median of 5 warm runs on an 8-core Mac (SQLite 3.45.1, DuckDB 2.0.0). Both
+engines are checked to return the same results before anything is timed.
+Absolute numbers will vary by machine; the ratios are what to look at.
+
+| | SQLite | DuckDB |
+|---|---|---|
+| **Setup** | Stdlib, nothing to install, ~30 ms import | `pip install duckdb` (~53 MB), ~85 ms import |
+| **Analytical queries** (group-by, window, top-N) | 110–550 ms | 7–115 ms, **2.5–81× faster** |
+| **Indexed point lookup** (1 symbol, 1 year) | **~0.2 ms** | ~1 ms |
+| **Load 630k rows from a DataFrame** | ~1.0 s | ~0.16 s |
+| **Disk** | 46 MB | **12 MB** (CSV: 38 MB) |
+| **Query → pandas** (126k rows) | ~300 ms (`read_sql_query`) | ~25 ms (`.df()`) |
+| **SQL directly on a DataFrame** | Must copy it into a table first (~1.2 s) | Zero-copy, ~8 ms |
+
+**Takeaways**
+
+- Use DuckDB for exploratory analysis over history: columnar storage and
+  vectorised execution win on scans, aggregates and window functions, the
+  database is ~4× smaller, and it queries pandas DataFrames and files in place.
+- Use SQLite when the workload is small keyed reads/writes (a row-store with
+  a primary key is hard to beat) or when you can't add a dependency.
+- DuckDB's advantage is not just parallelism: with `SET threads = 1` it is
+  still within ~15% of the 8-thread numbers on these queries.
+
+**Caveats:** data is synthetic (random walks), so compression ratios on real
+prices will differ; the DuckDB table has no index while SQLite has a
+`(symbol, date)` primary key (that is what makes its point lookup fast and its
+load slower); only read-heavy single-process use was tested, not concurrent
+writers, where SQLite's model is the more mature.
